@@ -12,30 +12,30 @@
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <style>
         :root {
-            --g900: #0a3d1e;
-            --g800: #0d5c2e;
-            --g700: #1a7a3c;
-            --g600: #27ae60;
-            --g500: #34c971;
-            --g400: #52d983;
-            --g100: #e8f5ee;
-            --g050: #f2faf5;
+            --g900: #123a66;
+            --g800: #1a4f8c;
+            --g700: #2868b0;
+            --g600: #2f80ed;
+            --g500: #4f9ff5;
+            --g400: #7ec2ff;
+            --g100: #e7f1fe;
+            --g050: #f1f8ff;
             --r600: #c0392b;
             --r500: #e05252;
             --r100: #fdeaea;
             --a500: #c8a84b;
             --a100: #fdf6e3;
-            --bg: #edf2ee;
+            --bg: #eef3fb;
             --card: #fff;
-            --t900: #111c14;
-            --t600: #3a5240;
-            --t400: #6b8c74;
-            --t200: #b8d4be;
-            --bdr: #daeadd;
+            --t900: #10182a;
+            --t600: #3d4a5f;
+            --t400: #6b7c91;
+            --t200: #bdd0e6;
+            --bdr: #d9e6f6;
             --rcard: 18px;
             --rbtn: 22px;
-            --shcard: 0 2px 16px rgba(26, 122, 60, .08);
-            --shfloat: 0 8px 32px rgba(26, 122, 60, .18);
+            --shcard: 0 2px 16px rgba(40, 104, 176, .08);
+            --shfloat: 0 8px 32px rgba(40, 104, 176, .18);
             --ease: cubic-bezier(.4, 0, .2, 1);
             --font: 'Plus Jakarta Sans', sans-serif;
         }
@@ -106,7 +106,7 @@
             padding: 14px 18px 32px;
             position: relative;
             border-radius: 0 0 36px 36px;
-            box-shadow: 0 10px 36px rgba(26, 122, 60, .22)
+            box-shadow: 0 10px 36px rgba(40, 104, 176, .22)
         }
 
         .appbar-row {
@@ -160,13 +160,13 @@
 
         /* HERO */
         .hero {
-            background: linear-gradient(140deg, #1d8c41 0%, #27ae60 55%, #3dd68c 100%);
+            background: linear-gradient(140deg, #1e5fb0 0%, #2f80ed 55%, #5fb0f5 100%);
             border-radius: var(--rcard);
             padding: 22px 22px 24px;
             margin: 0 14px;
             position: relative;
             overflow: hidden;
-            box-shadow: 0 10px 36px rgba(26, 122, 60, .28);
+            box-shadow: 0 10px 36px rgba(40, 104, 176, .28);
             transform: translateY(-2px);
             z-index: 2
         }
@@ -516,7 +516,7 @@
             background: var(--g700);
             border-color: var(--g700);
             color: #fff;
-            box-shadow: 0 2px 8px rgba(26, 122, 60, .25)
+            box-shadow: 0 2px 8px rgba(40, 104, 176, .25)
         }
 
         .chip:hover:not(.on) {
@@ -546,7 +546,7 @@
 
         .sbox input:focus {
             border-color: var(--g600);
-            box-shadow: 0 0 0 3px rgba(39, 174, 96, .1)
+            box-shadow: 0 0 0 3px rgba(47, 128, 237, .1)
         }
 
         .sbox input::placeholder {
@@ -639,7 +639,7 @@
         }
 
         .txi.inc {
-            border-top: 2px solid rgba(39, 174, 96, .35);
+            border-top: 2px solid rgba(47, 128, 237, .35);
             background: linear-gradient(160deg, #ffffff 70%, #f3fbf6 100%)
         }
 
@@ -696,7 +696,7 @@
             background: linear-gradient(135deg, var(--g800) 0%, var(--g600) 100%);
             color: #fff;
             border-radius: 14px;
-            box-shadow: 0 4px 14px rgba(39, 174, 96, .32)
+            box-shadow: 0 4px 14px rgba(47, 128, 237, .32)
         }
 
         .txi.exp .tx-ic {
@@ -1003,7 +1003,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 20px rgba(39, 174, 96, .45);
+            box-shadow: 0 4px 20px rgba(47, 128, 237, .45);
             color: #fff;
             transition: .2s var(--ease);
             flex-shrink: 0;
@@ -1012,7 +1012,7 @@
 
         .fab:hover {
             transform: scale(1.1) translateY(-2px);
-            box-shadow: 0 8px 28px rgba(39, 174, 96, .55)
+            box-shadow: 0 8px 28px rgba(47, 128, 237, .55)
         }
 
         .fab:active {
@@ -1129,7 +1129,7 @@
         .tbtn.i {
             background: linear-gradient(135deg, var(--g700), var(--g600));
             color: #fff;
-            box-shadow: 0 2px 12px rgba(39, 174, 96, .3)
+            box-shadow: 0 2px 12px rgba(47, 128, 237, .3)
         }
 
         .tbtn.e {
@@ -1170,7 +1170,7 @@
         .fse:focus {
             border-color: var(--g600);
             background: #fff;
-            box-shadow: 0 0 0 3px rgba(39, 174, 96, .1)
+            box-shadow: 0 0 0 3px rgba(47, 128, 237, .1)
         }
 
         .fsub {
@@ -1184,7 +1184,7 @@
             border: none;
             cursor: pointer;
             margin-top: 6px;
-            box-shadow: 0 4px 16px rgba(39, 174, 96, .3);
+            box-shadow: 0 4px 16px rgba(47, 128, 237, .3);
             transition: .2s var(--ease);
             display: flex;
             align-items: center;
@@ -1194,7 +1194,7 @@
 
         .fsub:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 22px rgba(39, 174, 96, .4)
+            box-shadow: 0 6px 22px rgba(47, 128, 237, .4)
         }
 
         .fsub:active {
@@ -1659,12 +1659,12 @@
                         preserveAspectRatio="xMidYMid slice">
                         <defs>
                             <pattern id="pi" x="0" y="0" width="28" height="28" patternUnits="userSpaceOnUse">
-                                <circle cx="14" cy="14" r="7.5" fill="none" stroke="#1a7a3c" stroke-width=".7" />
-                                <circle cx="14" cy="14" r="3.5" fill="none" stroke="#1a7a3c" stroke-width=".7" />
-                                <line x1="14" y1="6.5" x2="14" y2="3" stroke="#1a7a3c" stroke-width=".6" />
-                                <line x1="14" y1="21.5" x2="14" y2="25" stroke="#1a7a3c" stroke-width=".6" />
-                                <line x1="6.5" y1="14" x2="3" y2="14" stroke="#1a7a3c" stroke-width=".6" />
-                                <line x1="21.5" y1="14" x2="25" y2="14" stroke="#1a7a3c" stroke-width=".6" />
+                                <circle cx="14" cy="14" r="7.5" fill="none" stroke="#2868b0" stroke-width=".7" />
+                                <circle cx="14" cy="14" r="3.5" fill="none" stroke="#2868b0" stroke-width=".7" />
+                                <line x1="14" y1="6.5" x2="14" y2="3" stroke="#2868b0" stroke-width=".6" />
+                                <line x1="14" y1="21.5" x2="14" y2="25" stroke="#2868b0" stroke-width=".6" />
+                                <line x1="6.5" y1="14" x2="3" y2="14" stroke="#2868b0" stroke-width=".6" />
+                                <line x1="21.5" y1="14" x2="25" y2="14" stroke="#2868b0" stroke-width=".6" />
                             </pattern>
                         </defs>
                         <rect width="180" height="120" fill="url(#pi)" />
@@ -1795,9 +1795,9 @@
                         preserveAspectRatio="xMidYMid slice">
                         <defs>
                             <pattern id="pbc" x="0" y="0" width="22" height="22" patternUnits="userSpaceOnUse">
-                                <rect x="5" y="5" width="12" height="12" fill="none" stroke="#1a7a3c" stroke-width=".6"
+                                <rect x="5" y="5" width="12" height="12" fill="none" stroke="#2868b0" stroke-width=".6"
                                     rx="2" />
-                                <circle cx="11" cy="11" r="2" fill="none" stroke="#1a7a3c" stroke-width=".5" />
+                                <circle cx="11" cy="11" r="2" fill="none" stroke="#2868b0" stroke-width=".5" />
                             </pattern>
                         </defs>
                         <rect width="300" height="240" fill="url(#pbc)" />
@@ -2083,7 +2083,7 @@
             if (!el) {
                 el = document.createElement('div');
                 el.id = 'syncBadge';
-                el.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);background:rgba(26,122,60,.92);color:#fff;font-size:11px;font-weight:700;padding:5px 14px;border-radius:30px;z-index:9999;pointer-events:none;transition:opacity .3s;backdrop-filter:blur(8px)';
+                el.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);background:rgba(40, 104, 176,.92);color:#fff;font-size:11px;font-weight:700;padding:5px 14px;border-radius:30px;z-index:9999;pointer-events:none;transition:opacity .3s;backdrop-filter:blur(8px)';
                 el.textContent = '⟳ Memperbarui…';
                 document.body.appendChild(el);
             }
@@ -2141,7 +2141,7 @@
             return `<div class="txi ${isI ? 'inc' : 'exp'}" data-id="${tx.id}">
     <div class="bp" style="pointer-events:none"><svg viewBox="0 0 300 72" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
       <defs><pattern id="px${tx.id}" x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse">
-        <path d="M7,1.5 L8.2,5 L12,5 L9.1,7.3 L10.2,11 L7,8.7 L3.8,11 L4.9,7.3 L2,5 L5.8,5 Z" fill="none" stroke="${isI ? '#1a7a3c' : '#e05252'}" stroke-width=".45"/>
+        <path d="M7,1.5 L8.2,5 L12,5 L9.1,7.3 L10.2,11 L7,8.7 L3.8,11 L4.9,7.3 L2,5 L5.8,5 Z" fill="none" stroke="${isI ? '#2868b0' : '#e05252'}" stroke-width=".45"/>
       </pattern></defs><rect width="300" height="72" fill="url(#px${tx.id})"/>
     </svg></div>
     <div class="tx-ic"><i data-lucide="${ico}" width="20" height="20"></i></div>
@@ -2380,11 +2380,11 @@
             const bl = Object.keys(catM), bI = bl.map(l => catM[l].i), bE = bl.map(l => catM[l].e);
             const bCtx = document.getElementById('barChart').getContext('2d');
             if (barIns) barIns.destroy();
-            barIns = new Chart(bCtx, { type: 'bar', data: { labels: bl.length ? bl : ['—'], datasets: [{ label: 'Pemasukan', data: bI.length ? bI : [0], backgroundColor: 'rgba(39,174,96,.8)', borderRadius: 6, borderSkipped: false }, { label: 'Pengeluaran', data: bE.length ? bE : [0], backgroundColor: 'rgba(224,82,82,.8)', borderRadius: 6, borderSkipped: false }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { labels: { font: { family: 'Plus Jakarta Sans', size: 11 }, boxWidth: 12 } } }, scales: { y: { ticks: { callback: v => 'Rp ' + fmtN(v), font: { family: 'Plus Jakarta Sans', size: 9 } }, grid: { color: 'rgba(0,0,0,.04)' } }, x: { ticks: { font: { family: 'Plus Jakarta Sans', size: 9 } }, grid: { display: false } } } } });
+            barIns = new Chart(bCtx, { type: 'bar', data: { labels: bl.length ? bl : ['—'], datasets: [{ label: 'Pemasukan', data: bI.length ? bI : [0], backgroundColor: 'rgba(47, 128, 237,.8)', borderRadius: 6, borderSkipped: false }, { label: 'Pengeluaran', data: bE.length ? bE : [0], backgroundColor: 'rgba(224,82,82,.8)', borderRadius: 6, borderSkipped: false }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { labels: { font: { family: 'Plus Jakarta Sans', size: 11 }, boxWidth: 12 } } }, scales: { y: { ticks: { callback: v => 'Rp ' + fmtN(v), font: { family: 'Plus Jakarta Sans', size: 9 } }, grid: { color: 'rgba(0,0,0,.04)' } }, x: { ticks: { font: { family: 'Plus Jakarta Sans', size: 9 } }, grid: { display: false } } } } });
             const eC = {};
             list.filter(t => t.jenis === 'Pengeluaran').forEach(tx => { eC[tx.kategori] = (eC[tx.kategori] || 0) + +tx.nominal; });
             const dl = Object.keys(eC), dd = dl.map(l => eC[l]);
-            const PAL = ['#27ae60', '#e05252', '#f39c12', '#3498db', '#8e44ad', '#1abc9c', '#e67e22', '#7f8c8d', '#16a085', '#c0392b'];
+            const PAL = ['#2f80ed', '#e05252', '#f39c12', '#3498db', '#8e44ad', '#1abc9c', '#e67e22', '#7f8c8d', '#16a085', '#c0392b'];
             const dCtx = document.getElementById('donutChart').getContext('2d');
             if (dnutIns) dnutIns.destroy();
             dnutIns = new Chart(dCtx, { type: 'doughnut', data: { labels: dl.length ? dl : ['Tidak ada'], datasets: [{ data: dd.length ? dd : [1], backgroundColor: PAL.slice(0, Math.max(dl.length, 1)), borderWidth: 2.5, borderColor: '#fff' }] }, options: { responsive: true, maintainAspectRatio: true, cutout: '62%', plugins: { legend: { position: 'bottom', labels: { font: { family: 'Plus Jakarta Sans', size: 11 }, padding: 14, boxWidth: 12 } } } } });
