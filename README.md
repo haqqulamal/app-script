@@ -5,7 +5,7 @@ Ledger Harian adalah aplikasi pencatat keuangan berbasis Google Apps Script dan 
 ## Fitur
 
 - Catat pemasukan dan pengeluaran harian.
-- Simpan data langsung ke Google Sheets.
+- Simpan data langsung ke Google Sheets dengan pemisahan data per user.
 - Dashboard saldo, total pemasukan, dan total pengeluaran.
 - Riwayat transaksi dengan filter jenis, tanggal, dan pencarian.
 - Laporan bulanan dengan grafik pemasukan vs pengeluaran.
@@ -71,6 +71,17 @@ Setelah melakukan perubahan kode, deploy ulang lewat:
 Deploy > Manage deployments > Edit > New version > Deploy
 ```
 
+
+## Mode Privasi User
+
+Aplikasi menyimpan kolom `Pemilik` di sheet internal. Backend hanya mengirim data milik user yang sedang membuka app, sehingga orang lain yang membuka URL yang sama hanya melihat tampilan aplikasi dengan data miliknya sendiri atau kosong.
+
+Catatan penting:
+
+- Data lama yang belum punya kolom `Pemilik` akan dianggap sebagai data user pertama yang membuka app setelah update privasi dideploy.
+- Jika orang lain membuka app setelah itu, data lama tersebut tidak akan muncul di akun mereka.
+- Data Telegram dipisahkan berdasarkan `chat_id`, sehingga chat Telegram orang lain tidak bercampur.
+- Jika ingin reset klaim data lama, hapus Script Property `PRIMARY_OWNER_KEY` dari Project Settings, lalu buka app memakai akun yang benar.
 ## Sheet yang Digunakan
 
 Aplikasi akan membuat sheet berikut secara otomatis jika belum ada:
@@ -205,3 +216,4 @@ node --input-type=commonjs --check < Telegram.gs
 ```
 
 Untuk `index.html`, cek script di dalam tag `<script>` sebelum deploy jika melakukan perubahan besar.
+

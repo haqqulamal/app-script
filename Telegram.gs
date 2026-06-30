@@ -1,40 +1,36 @@
-// ════════════════════════════════════════════
-// TELEGRAM BOT — Money Tracker
-// ════════════════════════════════════════════
+// TELEGRAM BOT - Ledger Harian
 
 var HELP_TEXT =
-  "🤖 Cara pakai Money Tracker Bot\n\n" +
+  "Cara pakai Ledger Harian Bot\n\n" +
   "Format:\n" +
   "<tipe> <nominal> <keterangan> [#kategori] [@metode]\n\n" +
   "Tipe:\n" +
-  "• k / keluar  → pengeluaran\n" +
-  "• m / masuk   → pemasukan\n\n" +
+  "- k / keluar  = pengeluaran\n" +
+  "- m / masuk   = pemasukan\n\n" +
   "Nominal bisa ditulis:\n" +
-  "• 15000 atau 15.000\n" +
-  "• 15rb / 15ribu\n" +
-  "• 1.5jt / 2juta\n\n" +
+  "- 15000 atau 15.000\n" +
+  "- 15rb / 15ribu\n" +
+  "- 1.5jt / 2juta\n\n" +
   "Contoh:\n" +
   "k 15rb kopi pagi #makanan @tunai\n" +
   "m 2jt gaji bulanan #gaji @transfer\n" +
   "k 50000 bensin\n\n" +
   'Kategori & metode opsional (default: "Lainnya").\n\n' +
   "Perintah lain:\n" +
-  "/saldo     → lihat total saldo\n" +
-  "/hariini   → rekap transaksi hari ini\n" +
-  "/help      → tampilkan pesan ini";
+  "/saldo     = lihat total saldo\n" +
+  "/hariini   = rekap transaksi hari ini\n" +
+  "/help      = tampilkan pesan ini";
 
-// ─── doPost: Entry point webhook Telegram ───────────
 function doPost(e) {
   try {
     var update = JSON.parse(e.postData.contents);
 
-    // ── Cegah proses ulang update yang sama (anti-spam akibat retry Telegram) ──
     var cache = CacheService.getScriptCache();
     var cacheKey = "upd_" + update.update_id;
     if (cache.get(cacheKey)) {
-      return HtmlService.createHtmlOutput("ok"); // sudah pernah diproses, abaikan
+      return HtmlService.createHtmlOutput("ok");
     }
-    cache.put(cacheKey, "1", 300); // tandai sudah diproses selama 5 menit
+    cache.put(cacheKey, "1", 300);
 
     var message = update.message;
     if (!message || !message.text) {
@@ -50,26 +46,22 @@ function doPost(e) {
     }
 
     if (text === "/saldo") {
-      sendTelegramMessage(chatId, getSaldoText());
+      sendTelegramMessage(chatId, getSaldoText(chatId));
       return HtmlService.createHtmlOutput("ok");
     }
 
     if (text === "/hariini" || text === "/today") {
-      sendTelegramMessage(chatId, getRekapHariIniText());
+      sendTelegramMessage(chatId, getRekapHariIniText(chatId));
       return HtmlService.createHtmlOutput("ok");
     }
 
     var parsed = parseTelegramText(text);
     if (!parsed) {
-      sendTelegramMessage(chatId, "⚠️ Format gak dikenali.\n\n" + HELP_TEXT);
+      sendTelegramMessage(chatId, "Format gak dikenali.\n\n" + HELP_TEXT);
       return HtmlService.createHtmlOutput("ok");
     }
 
-    var tanggal = Utilities.formatDate(
-      new Date(),
-      "Asia/Jakarta",
-      "dd/MM/yyyy",
-    );
+    var tanggal = Utilities.formatDate(new Date(), "Asia/Jakarta", "dd/MM/yyyy");
 
     addData({
       tanggal: tanggal,
@@ -79,13 +71,13 @@ function doPost(e) {
       nominal: parsed.nominal,
       metode: parsed.metode,
       catatan: "",
+      owner: getTelegramOwner_(chatId),
     });
 
-    var emoji = parsed.jenis === "Pengeluaran" ? "💸" : "💰";
+    var prefix = parsed.jenis === "Pengeluaran" ? "Pengeluaran" : "Pemasukan";
     var reply =
-      emoji +
-      " Tercatat!\n" +
-      parsed.jenis +
+      "Tercatat!\n" +
+      prefix +
       ": Rp" +
       formatRupiah(parsed.nominal) +
       "\n" +
@@ -100,15 +92,18 @@ function doPost(e) {
   } catch (err) {
     try {
       var chatIdErr = JSON.parse(e.postData.contents).message.chat.id;
-      sendTelegramMessage(chatIdErr, "❌ Gagal mencatat: " + err.message);
+      sendTelegramMessage(chatIdErr, "Gagal mencatat: " + err.message);
     } catch (e2) {
-      // diam aja kalau bahkan ini gagal
+      // Abaikan jika gagal mengirim pesan error.
     }
   }
   return HtmlService.createHtmlOutput("ok");
 }
 
-// ─── parseTelegramText: Ubah teks chat jadi data transaksi ───
+function getTelegramOwner_(chatId) {
+  return "telegram:" + chatId;
+}
+
 function parseTelegramText(text) {
   text = text.trim();
   if (!text) return null;
@@ -158,7 +153,6 @@ function parseTelegramText(text) {
   };
 }
 
-// ─── parseNominal: "15rb" / "1.5jt" / "15.000" → angka ───
 function parseNominal(token) {
   token = token.toLowerCase().trim();
   var match = token.match(/^([\d.,]+)\s*(rb|ribu|jt|juta|k)?$/);
@@ -179,23 +173,21 @@ function parseNominal(token) {
   return isNaN(num) ? null : num;
 }
 
-// ─── formatRupiah: angka → "15.000" ───
 function formatRupiah(num) {
   return Math.round(num).toLocaleString("id-ID");
 }
 
-// ─── getSaldoText: ringkasan total ───
-function getSaldoText() {
-  var data = getData();
-  var masuk = 0,
-    keluar = 0;
+function getSaldoText(chatId) {
+  var data = getData(getTelegramOwner_(chatId));
+  var masuk = 0;
+  var keluar = 0;
   data.forEach(function (row) {
     if (row.jenis === "Pemasukan") masuk += row.nominal;
     else if (row.jenis === "Pengeluaran") keluar += row.nominal;
   });
   var saldo = masuk - keluar;
   return (
-    "📊 Ringkasan\n" +
+    "Ringkasan\n" +
     "Total Pemasukan: Rp" +
     formatRupiah(masuk) +
     "\n" +
@@ -207,19 +199,18 @@ function getSaldoText() {
   );
 }
 
-// ─── getRekapHariIniText: rekap transaksi hari ini ───
-function getRekapHariIniText() {
+function getRekapHariIniText(chatId) {
   var todayStr = Utilities.formatDate(new Date(), "Asia/Jakarta", "dd/MM/yyyy");
-  var data = getData().filter(function (row) {
+  var data = getData(getTelegramOwner_(chatId)).filter(function (row) {
     return row.tanggal === todayStr;
   });
 
   if (data.length === 0) {
-    return "📅 Belum ada transaksi hari ini (" + todayStr + ").";
+    return "Belum ada transaksi hari ini (" + todayStr + ").";
   }
 
-  var masuk = 0,
-    keluar = 0;
+  var masuk = 0;
+  var keluar = 0;
   var lines = data.map(function (row) {
     if (row.jenis === "Pemasukan") {
       masuk += row.nominal;
@@ -231,7 +222,7 @@ function getRekapHariIniText() {
   });
 
   return (
-    "📅 Transaksi hari ini (" +
+    "Transaksi hari ini (" +
     todayStr +
     ")\n\n" +
     lines.join("\n") +
@@ -242,7 +233,6 @@ function getRekapHariIniText() {
   );
 }
 
-// ─── sendTelegramMessage: balas ke chat Telegram ───
 function sendTelegramMessage(chatId, text) {
   var token =
     PropertiesService.getScriptProperties().getProperty("TELEGRAM_BOT_TOKEN");
