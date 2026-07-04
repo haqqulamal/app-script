@@ -5,7 +5,8 @@ Ledger Harian adalah aplikasi pencatat keuangan berbasis Google Apps Script dan 
 ## Fitur
 
 - Catat pemasukan dan pengeluaran harian.
-- Simpan data langsung ke Google Sheets dengan pemisahan data per user.
+- Data pribadi dipisahkan memakai profil + PIN.
+- Website dan Telegram bisa memakai data profil yang sama.
 - Dashboard saldo, total pemasukan, dan total pengeluaran.
 - Riwayat transaksi dengan filter jenis, tanggal, dan pencarian.
 - Laporan bulanan dengan grafik pemasukan vs pengeluaran.
@@ -51,8 +52,7 @@ Tidak membutuhkan Node.js, npm, Composer, Laravel, MySQL, atau server lokal.
    - `Telegram.gs`
    - `index.html`
    - `appscript.json`
-4. Pastikan `appscript.json` berisi konfigurasi web app.
-5. Klik `Save`.
+4. Klik `Save`.
 
 ## Deploy Web App
 
@@ -71,17 +71,32 @@ Setelah melakukan perubahan kode, deploy ulang lewat:
 Deploy > Manage deployments > Edit > New version > Deploy
 ```
 
+## Mode Privasi Profil
 
-## Mode Privasi User
+Aplikasi memakai profil + PIN agar data tidak bercampur walaupun URL web app dibuka orang lain.
 
-Aplikasi menyimpan kolom `Pemilik` di sheet internal. Backend hanya mengirim data milik user yang sedang membuka app, sehingga orang lain yang membuka URL yang sama hanya melihat tampilan aplikasi dengan data miliknya sendiri atau kosong.
+Cara pakai di website:
 
-Catatan penting:
+1. Buka URL Web App.
+2. Isi `Nama Profil`, misalnya `haqqu`.
+3. Isi PIN minimal 4 karakter.
+4. Profil baru akan dibuat otomatis jika belum ada.
 
-- Data lama yang belum punya kolom `Pemilik` akan dianggap sebagai data user pertama yang membuka app setelah update privasi dideploy.
-- Jika orang lain membuka app setelah itu, data lama tersebut tidak akan muncul di akun mereka.
-- Data Telegram dipisahkan berdasarkan `chat_id`, sehingga chat Telegram orang lain tidak bercampur.
-- Jika ingin reset klaim data lama, hapus Script Property `PRIMARY_OWNER_KEY` dari Project Settings, lalu buka app memakai akun yang benar.
+Cara pakai di Telegram:
+
+```text
+/profil haqqu 1234
+```
+
+Gunakan nama profil dan PIN yang sama dengan website. Setelah tersambung, `/saldo`, `/hariini`, dan catatan transaksi Telegram akan membaca data profil tersebut.
+
+Catatan migrasi data lama:
+
+- Sheet `Data Keuangan`, `Budget Kategori`, dan `Transaksi Rutin` punya kolom `Pemilik`.
+- Agar data lama muncul di profil kamu, isi kolom `Pemilik` dengan format `profile:nama`.
+- Contoh untuk profil `haqqu`: isi `profile:haqqu` pada baris data lama yang ingin dimiliki profil itu.
+- Orang lain bisa membuat profil dan PIN sendiri, sehingga mereka hanya melihat data miliknya.
+
 ## Sheet yang Digunakan
 
 Aplikasi akan membuat sheet berikut secara otomatis jika belum ada:
@@ -89,13 +104,14 @@ Aplikasi akan membuat sheet berikut secara otomatis jika belum ada:
 - `Data Keuangan`
 - `Budget Kategori`
 - `Transaksi Rutin`
+- `Profil User`
 
 ### Data Keuangan
 
 Kolom utama:
 
 ```text
-ID | Tanggal | Jenis | Kategori | Deskripsi | Nominal | Metode Bayar | Catatan
+ID | Tanggal | Jenis | Kategori | Deskripsi | Nominal | Metode Bayar | Catatan | Pemilik
 ```
 
 ### Budget Kategori
@@ -103,7 +119,7 @@ ID | Tanggal | Jenis | Kategori | Deskripsi | Nominal | Metode Bayar | Catatan
 Kolom:
 
 ```text
-Kategori | Budget Bulanan
+Kategori | Budget Bulanan | Pemilik
 ```
 
 ### Transaksi Rutin
@@ -111,7 +127,15 @@ Kategori | Budget Bulanan
 Kolom:
 
 ```text
-ID | Jenis | Kategori | Deskripsi | Nominal | Metode Bayar | Catatan | Tanggal Mulai | Hari Tagih | Aktif | Terakhir Dibuat
+ID | Jenis | Kategori | Deskripsi | Nominal | Metode Bayar | Catatan | Tanggal Mulai | Hari Tagih | Aktif | Terakhir Dibuat | Pemilik
+```
+
+### Profil User
+
+Kolom:
+
+```text
+Profil | PIN Hash | Dibuat Pada
 ```
 
 ## Setup Telegram Bot
@@ -155,6 +179,12 @@ Jika webhook sebelumnya sudah berhasil dan deployment yang sama masih dipakai, w
 
 ## Command Telegram
 
+Hubungkan profil:
+
+```text
+/profil haqqu 1234
+```
+
 Format pencatatan:
 
 ```text
@@ -175,6 +205,7 @@ Command lain:
 ```text
 /start
 /help
+/id
 /saldo
 /hariini
 /today
@@ -202,6 +233,7 @@ Export PDF dilakukan dari halaman laporan. Klik `Export PDF`, lalu browser akan 
 - Jangan commit token Telegram.
 - Simpan token hanya di Script Properties dengan nama `TELEGRAM_BOT_TOKEN`.
 - Jika token pernah terlihat di screenshot/chat/public repo, revoke token melalui BotFather lalu buat token baru.
+- PIN disimpan sebagai hash di sheet `Profil User`, tetapi tetap gunakan PIN yang tidak mudah ditebak.
 - Karena konfigurasi web app memakai akses `Anyone`, gunakan URL dengan hati-hati.
 
 ## Development
@@ -216,4 +248,3 @@ node --input-type=commonjs --check < Telegram.gs
 ```
 
 Untuk `index.html`, cek script di dalam tag `<script>` sebelum deploy jika melakukan perubahan besar.
-

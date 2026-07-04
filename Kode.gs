@@ -1,6 +1,7 @@
 const SHEET_NAME = "Data Keuangan";
 const BUDGET_SHEET_NAME = "Budget Kategori";
 const RECURRING_SHEET_NAME = "Transaksi Rutin";
+const PROFILE_SHEET_NAME = "Profil User";
 const OWNER_HEADER = "Pemilik";
 const HEADERS = [
   "ID",
@@ -28,6 +29,7 @@ const RECURRING_HEADERS = [
   "Terakhir Dibuat",
   OWNER_HEADER,
 ];
+const PROFILE_HEADERS = ["Profil", "PIN Hash", "Dibuat Pada"];
 
 function doGet() {
   return HtmlService.createHtmlOutputFromFile("index")
@@ -37,8 +39,7 @@ function doGet() {
 }
 
 function getOrCreateSheet() {
-  const sheet = getOrCreateNamedSheet(SHEET_NAME, HEADERS, "#1a7a3c");
-  return sheet;
+  return getOrCreateNamedSheet(SHEET_NAME, HEADERS, "#1a7a3c");
 }
 
 function getOrCreateNamedSheet(name, headers, color) {
@@ -67,41 +68,64 @@ function ensureHeaders(sheet, headers) {
   });
 }
 
-function getCurrentOwnerKey_(fallbackOwner) {
-  if (fallbackOwner) return fallbackOwner.toString();
-  const email = Session.getActiveUser().getEmail();
-  const tempKey = Session.getTemporaryActiveUserKey();
-  return email || tempKey || "";
+function normalizeProfileName_(name) {
+  return String(name || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
-function requireOwnerKey_(fallbackOwner) {
-  const owner = getCurrentOwnerKey_(fallbackOwner);
-  if (!owner) {
-    throw new Error(
-      "User tidak teridentifikasi. Buka app dengan akun Google agar data pribadi bisa dipisahkan.",
-    );
+function hashPin_(pin) {
+  const raw = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    String(pin || ""),
+    Utilities.Charset.UTF_8,
+  );
+  return Utilities.base64Encode(raw);
+}
+
+function profileOwner_(profileName) {
+  const profile = normalizeProfileName_(profileName);
+  return profile ? "profile:" + profile : "";
+}
+
+function ensureProfile(auth) {
+  try {
+    const profile = normalizeProfileName_(auth && auth.profileName);
+    const pin = auth && auth.pin ? String(auth.pin) : "";
+    if (!profile) throw new Error("Nama profil wajib diisi");
+    if (pin.length < 4) throw new Error("PIN minimal 4 karakter");
+
+    const sheet = getOrCreateNamedSheet(PROFILE_SHEET_NAME, PROFILE_HEADERS);
+    const lastRow = sheet.getLastRow();
+    const hash = hashPin_(pin);
+
+    if (lastRow >= 2) {
+      const rows = sheet.getRange(2, 1, lastRow - 1, PROFILE_HEADERS.length).getValues();
+      for (let i = 0; i < rows.length; i++) {
+        if (rows[i][0].toString() === profile) {
+          if (rows[i][1].toString() !== hash) throw new Error("PIN profil salah");
+          return { success: true, profileName: profile, owner: profileOwner_(profile) };
+        }
+      }
+    }
+
+    sheet.appendRow([profile, hash, new Date()]);
+    return { success: true, profileName: profile, owner: profileOwner_(profile), created: true };
+  } catch (e) {
+    throw new Error("Gagal masuk profil: " + e.message);
   }
-  return owner;
 }
 
-function getPrimaryOwnerKey_(owner) {
-  const props = PropertiesService.getScriptProperties();
-  let primary = props.getProperty("PRIMARY_OWNER_KEY");
-  if (!primary && owner) {
-    props.setProperty("PRIMARY_OWNER_KEY", owner);
-    primary = owner;
-  }
-  return primary || "";
+function requireOwnerKey_(auth) {
+  if (typeof auth === "string") return auth;
+  return ensureProfile(auth).owner;
 }
 
-function canReadLegacyRows_(owner, fallbackOwner) {
-  if (fallbackOwner) return false;
-  return owner && owner === getPrimaryOwnerKey_(owner);
-}
-
-function rowBelongsToOwner_(rowOwner, owner, canReadLegacy) {
+function rowBelongsToOwner_(rowOwner, owner) {
   rowOwner = rowOwner ? rowOwner.toString() : "";
-  return rowOwner === owner || (!rowOwner && canReadLegacy);
+  return rowOwner === owner;
 }
 
 function formatSheetDate(val) {
@@ -114,17 +138,16 @@ function formatSheetDate(val) {
   return val ? val.toString() : "";
 }
 
-function getData(ownerOverride) {
+function getData(auth) {
   try {
-    const owner = requireOwnerKey_(ownerOverride);
-    const canReadLegacy = canReadLegacyRows_(owner, ownerOverride);
+    const owner = requireOwnerKey_(auth);
     const sheet = getOrCreateSheet();
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return [];
 
     const data = sheet.getRange(2, 1, lastRow - 1, HEADERS.length).getValues();
     return data
-      .filter((row) => row[0] !== "" && rowBelongsToOwner_(row[8], owner, canReadLegacy))
+      .filter((row) => row[0] !== "" && rowBelongsToOwner_(row[8], owner))
       .map((row) => ({
         id: row[0].toString(),
         tanggal: formatSheetDate(row[1]),
@@ -140,20 +163,20 @@ function getData(ownerOverride) {
   }
 }
 
-function getAppState() {
-  requireOwnerKey_();
-  processRecurringTransactions();
+function getAppState(auth) {
+  const owner = requireOwnerKey_(auth);
+  processRecurringTransactions(auth);
   return {
-    transactions: getData(),
-    budgets: getBudgets(),
-    recurring: getRecurringTransactions(),
+    profile: owner,
+    transactions: getData(owner),
+    budgets: getBudgets(owner),
+    recurring: getRecurringTransactions(owner),
   };
 }
 
-function getBudgets(ownerOverride) {
+function getBudgets(auth) {
   try {
-    const owner = requireOwnerKey_(ownerOverride);
-    const canReadLegacy = canReadLegacyRows_(owner, ownerOverride);
+    const owner = requireOwnerKey_(auth);
     const sheet = getOrCreateNamedSheet(BUDGET_SHEET_NAME, BUDGET_HEADERS);
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return [];
@@ -161,7 +184,7 @@ function getBudgets(ownerOverride) {
     return sheet
       .getRange(2, 1, lastRow - 1, BUDGET_HEADERS.length)
       .getValues()
-      .filter((row) => row[0] !== "" && rowBelongsToOwner_(row[2], owner, canReadLegacy))
+      .filter((row) => row[0] !== "" && rowBelongsToOwner_(row[2], owner))
       .map((row) => ({
         kategori: row[0].toString(),
         nominal: Number(row[1]) || 0,
@@ -173,8 +196,7 @@ function getBudgets(ownerOverride) {
 
 function saveBudget(data) {
   try {
-    const owner = requireOwnerKey_(data.owner);
-    const canReadLegacy = canReadLegacyRows_(owner, data.owner);
+    const owner = requireOwnerKey_(data.auth || data.owner);
     const sheet = getOrCreateNamedSheet(BUDGET_SHEET_NAME, BUDGET_HEADERS);
     const kategori = (data.kategori || "").toString().trim();
     const nominal = Number(data.nominal);
@@ -185,10 +207,7 @@ function saveBudget(data) {
     if (lastRow >= 2) {
       const rows = sheet.getRange(2, 1, lastRow - 1, BUDGET_HEADERS.length).getValues();
       for (let i = 0; i < rows.length; i++) {
-        if (
-          rows[i][0].toString().toLowerCase() === kategori.toLowerCase() &&
-          rowBelongsToOwner_(rows[i][2], owner, canReadLegacy)
-        ) {
+        if (rows[i][0].toString().toLowerCase() === kategori.toLowerCase() && rowBelongsToOwner_(rows[i][2], owner)) {
           sheet.getRange(i + 2, 1, 1, BUDGET_HEADERS.length).setValues([[kategori, nominal, owner]]);
           return { success: true };
         }
@@ -202,17 +221,16 @@ function saveBudget(data) {
   }
 }
 
-function deleteBudget(kategori) {
+function deleteBudget(kategori, auth) {
   try {
-    const owner = requireOwnerKey_();
-    const canReadLegacy = canReadLegacyRows_(owner);
+    const owner = requireOwnerKey_(auth);
     const sheet = getOrCreateNamedSheet(BUDGET_SHEET_NAME, BUDGET_HEADERS);
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return { success: true };
 
     const rows = sheet.getRange(2, 1, lastRow - 1, BUDGET_HEADERS.length).getValues();
     for (let i = 0; i < rows.length; i++) {
-      if (rows[i][0].toString() === kategori.toString() && rowBelongsToOwner_(rows[i][2], owner, canReadLegacy)) {
+      if (rows[i][0].toString() === kategori.toString() && rowBelongsToOwner_(rows[i][2], owner)) {
         sheet.deleteRow(i + 2);
         return { success: true };
       }
@@ -223,10 +241,9 @@ function deleteBudget(kategori) {
   }
 }
 
-function getRecurringTransactions(ownerOverride) {
+function getRecurringTransactions(auth) {
   try {
-    const owner = requireOwnerKey_(ownerOverride);
-    const canReadLegacy = canReadLegacyRows_(owner, ownerOverride);
+    const owner = requireOwnerKey_(auth);
     const sheet = getOrCreateNamedSheet(RECURRING_SHEET_NAME, RECURRING_HEADERS);
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return [];
@@ -234,7 +251,7 @@ function getRecurringTransactions(ownerOverride) {
     return sheet
       .getRange(2, 1, lastRow - 1, RECURRING_HEADERS.length)
       .getValues()
-      .filter((row) => row[0] !== "" && rowBelongsToOwner_(row[11], owner, canReadLegacy))
+      .filter((row) => row[0] !== "" && rowBelongsToOwner_(row[11], owner))
       .map((row) => ({
         id: row[0].toString(),
         jenis: row[1].toString(),
@@ -255,8 +272,7 @@ function getRecurringTransactions(ownerOverride) {
 
 function saveRecurringTransaction(data) {
   try {
-    const owner = requireOwnerKey_(data.owner);
-    const canReadLegacy = canReadLegacyRows_(owner, data.owner);
+    const owner = requireOwnerKey_(data.auth || data.owner);
     const sheet = getOrCreateNamedSheet(RECURRING_SHEET_NAME, RECURRING_HEADERS);
     const id = data.id ? data.id.toString() : new Date().getTime().toString();
     const row = [
@@ -278,7 +294,7 @@ function saveRecurringTransaction(data) {
     if (lastRow >= 2) {
       const rows = sheet.getRange(2, 1, lastRow - 1, RECURRING_HEADERS.length).getValues();
       for (let i = 0; i < rows.length; i++) {
-        if (rows[i][0].toString() === id && rowBelongsToOwner_(rows[i][11], owner, canReadLegacy)) {
+        if (rows[i][0].toString() === id && rowBelongsToOwner_(rows[i][11], owner)) {
           sheet.getRange(i + 2, 1, 1, RECURRING_HEADERS.length).setValues([row]);
           return { success: true, id: id };
         }
@@ -292,17 +308,16 @@ function saveRecurringTransaction(data) {
   }
 }
 
-function deleteRecurringTransaction(id) {
+function deleteRecurringTransaction(id, auth) {
   try {
-    const owner = requireOwnerKey_();
-    const canReadLegacy = canReadLegacyRows_(owner);
+    const owner = requireOwnerKey_(auth);
     const sheet = getOrCreateNamedSheet(RECURRING_SHEET_NAME, RECURRING_HEADERS);
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return { success: true };
 
     const rows = sheet.getRange(2, 1, lastRow - 1, RECURRING_HEADERS.length).getValues();
     for (let i = 0; i < rows.length; i++) {
-      if (rows[i][0].toString() === id.toString() && rowBelongsToOwner_(rows[i][11], owner, canReadLegacy)) {
+      if (rows[i][0].toString() === id.toString() && rowBelongsToOwner_(rows[i][11], owner)) {
         sheet.deleteRow(i + 2);
         return { success: true };
       }
@@ -313,9 +328,8 @@ function deleteRecurringTransaction(id) {
   }
 }
 
-function processRecurringTransactions(ownerOverride) {
-  const owner = requireOwnerKey_(ownerOverride);
-  const canReadLegacy = canReadLegacyRows_(owner, ownerOverride);
+function processRecurringTransactions(auth) {
+  const owner = requireOwnerKey_(auth);
   const sheet = getOrCreateNamedSheet(RECURRING_SHEET_NAME, RECURRING_HEADERS);
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return { success: true, created: 0 };
@@ -329,7 +343,7 @@ function processRecurringTransactions(ownerOverride) {
   let created = 0;
 
   rows.forEach((row, i) => {
-    if (!rowBelongsToOwner_(row[11], owner, canReadLegacy)) return;
+    if (!rowBelongsToOwner_(row[11], owner)) return;
     const active = row[9] === true || row[9].toString().toLowerCase() === "true";
     if (!active || row[10] === ym) return;
 
@@ -351,7 +365,6 @@ function processRecurringTransactions(ownerOverride) {
       owner: owner,
     });
     sheet.getRange(i + 2, 11).setValue(ym);
-    if (!row[11]) sheet.getRange(i + 2, 12).setValue(owner);
     created++;
   });
 
@@ -360,7 +373,7 @@ function processRecurringTransactions(ownerOverride) {
 
 function addData(data) {
   try {
-    const owner = requireOwnerKey_(data.owner);
+    const owner = requireOwnerKey_(data.auth || data.owner);
     const sheet = getOrCreateSheet();
     const id = new Date().getTime().toString();
     sheet.appendRow([
@@ -382,15 +395,14 @@ function addData(data) {
 
 function updateData(data) {
   try {
-    const owner = requireOwnerKey_(data.owner);
-    const canReadLegacy = canReadLegacyRows_(owner, data.owner);
+    const owner = requireOwnerKey_(data.auth || data.owner);
     const sheet = getOrCreateSheet();
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) throw new Error("Data tidak ditemukan");
 
     const rows = sheet.getRange(2, 1, lastRow - 1, HEADERS.length).getValues();
     for (let i = 0; i < rows.length; i++) {
-      if (rows[i][0].toString() === data.id.toString() && rowBelongsToOwner_(rows[i][8], owner, canReadLegacy)) {
+      if (rows[i][0].toString() === data.id.toString() && rowBelongsToOwner_(rows[i][8], owner)) {
         const rowNum = i + 2;
         sheet
           .getRange(rowNum, 2, 1, 8)
@@ -415,17 +427,16 @@ function updateData(data) {
   }
 }
 
-function deleteData(id) {
+function deleteData(id, auth) {
   try {
-    const owner = requireOwnerKey_();
-    const canReadLegacy = canReadLegacyRows_(owner);
+    const owner = requireOwnerKey_(auth);
     const sheet = getOrCreateSheet();
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) throw new Error("Data tidak ditemukan");
 
     const rows = sheet.getRange(2, 1, lastRow - 1, HEADERS.length).getValues();
     for (let i = 0; i < rows.length; i++) {
-      if (rows[i][0].toString() === id.toString() && rowBelongsToOwner_(rows[i][8], owner, canReadLegacy)) {
+      if (rows[i][0].toString() === id.toString() && rowBelongsToOwner_(rows[i][8], owner)) {
         sheet.deleteRow(i + 2);
         return { success: true };
       }
@@ -435,5 +446,3 @@ function deleteData(id) {
     throw new Error("Gagal menghapus data: " + e.message);
   }
 }
-
-

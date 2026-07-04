@@ -1957,6 +1957,135 @@
             font-weight: 800;
             text-transform: uppercase;
         }
+
+        .appbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .profile-lock {
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 22px;
+            background: rgba(18, 35, 31, .72);
+            backdrop-filter: blur(14px);
+        }
+
+        .profile-lock.open {
+            display: flex;
+        }
+
+        .profile-card {
+            width: min(420px, 100%);
+            background: var(--paper);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            box-shadow: var(--shadow2);
+            padding: 20px;
+        }
+
+        .profile-head {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .profile-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 8px;
+            display: grid;
+            place-items: center;
+            color: var(--g700);
+            background: rgba(39, 127, 101, .12);
+        }
+
+        .profile-title {
+            font-size: 19px;
+            font-weight: 900;
+            color: var(--ink);
+        }
+
+        .profile-sub {
+            font-size: 12px;
+            color: var(--t200);
+            margin-top: 2px;
+        }
+
+        .profile-form {
+            display: grid;
+            gap: 12px;
+        }
+
+        .profile-row {
+            display: grid;
+            gap: 6px;
+        }
+
+        .profile-row label {
+            font-size: 11px;
+            font-weight: 900;
+            color: var(--t100);
+            text-transform: uppercase;
+        }
+
+        .profile-row input {
+            width: 100%;
+            min-height: 44px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 0 12px;
+            background: #fffdf8;
+            color: var(--ink);
+            font-weight: 800;
+            outline: none;
+        }
+
+        .profile-row input:focus {
+            border-color: var(--g700);
+            box-shadow: 0 0 0 3px rgba(39, 127, 101, .14);
+        }
+
+        .profile-actions {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+            margin-top: 4px;
+        }
+
+        .profile-primary,
+        .profile-secondary {
+            min-height: 42px;
+            border-radius: 8px;
+            border: 0;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .profile-primary {
+            background: var(--g700);
+            color: #fff;
+        }
+
+        .profile-secondary {
+            padding: 0 14px;
+            background: #eef6f1;
+            color: var(--g700);
+            border: 1px solid rgba(39, 127, 101, .18);
+        }
+
+        .profile-note {
+            margin-top: 12px;
+            color: var(--t200);
+            font-size: 12px;
+            line-height: 1.45;
+        }
     </style>
 </head>
 
@@ -2475,6 +2604,71 @@
         /* ════════════════════════════════════
            LOAD DATA
         ════════════════════════════════════ */
+
+        function loadStoredProfile() {
+            const profileName = localStorage.getItem('ledgerProfileName') || '';
+            const pin = sessionStorage.getItem('ledgerProfilePin') || '';
+            const nameEl = document.getElementById('profileNameInput');
+            const pinEl = document.getElementById('profilePinInput');
+            if (nameEl && profileName) nameEl.value = profileName;
+            if (pinEl && pin) pinEl.value = pin;
+            if (profileName && pin) profileAuth = { profileName, pin };
+        }
+
+        function getProfileAuth() {
+            if (!profileAuth || !profileAuth.profileName || !profileAuth.pin) {
+                openProfile(true);
+                throw new Error('Profil belum dipilih');
+            }
+            return { profileName: profileAuth.profileName, pin: profileAuth.pin };
+        }
+
+        function openProfile(force) {
+            const mod = document.getElementById('profileLock');
+            if (!mod) return;
+            mod.classList.add('open');
+            const input = document.getElementById('profileNameInput');
+            setTimeout(() => input && input.focus(), 40);
+            lucide.createIcons({ nodes: [mod] });
+        }
+
+        function closeProfile() {
+            const mod = document.getElementById('profileLock');
+            if (mod) mod.classList.remove('open');
+        }
+
+        function saveProfileLogin() {
+            const profileName = (document.getElementById('profileNameInput')?.value || '').trim();
+            const pin = (document.getElementById('profilePinInput')?.value || '').trim();
+            if (!profileName) return toast('Nama profil wajib diisi', 'warn');
+            if (pin.length < 4) return toast('PIN minimal 4 karakter', 'warn');
+
+            const auth = { profileName, pin };
+            const persist = (result) => {
+                profileAuth = { profileName: result?.profileName || profileName, pin };
+                localStorage.setItem('ledgerProfileName', profileAuth.profileName);
+                sessionStorage.setItem('ledgerProfilePin', pin);
+                closeProfile();
+                toast(result?.created ? 'Profil baru dibuat' : 'Profil aktif', 'ok');
+                loadData();
+            };
+
+            if (!hasGAS()) return persist({ profileName, created: false });
+            google.script.run
+                .withSuccessHandler(persist)
+                .withFailureHandler(e => toast(e.message || 'Gagal masuk profil', 'err'))
+                .ensureProfile(auth);
+        }
+
+        function clearProfileLogin() {
+            profileAuth = null;
+            localStorage.removeItem('ledgerProfileName');
+            sessionStorage.removeItem('ledgerProfilePin');
+            allTx = []; budgets = []; recurringTx = [];
+            renderAll();
+            openProfile(true);
+        }
+
         function loadData(silent) {
             if (!hasGAS()) { allTx = demo(); budgets = demoBudgets(); recurringTx = demoRecurring(); renderAll(); return; }
             if (!silent) showSyncing(true);
@@ -2490,7 +2684,7 @@
                     renderAll(); showSyncing(false);
                 })
                 .withFailureHandler(e => { toast('Gagal memuat: ' + e.message, 'err'); allTx = []; budgets = []; recurringTx = []; renderAll(); showSyncing(false); })
-                .getAppState();
+                .getAppState(getProfileAuth());
         }
 
         /* Auto-refresh: re-fetch from sheet every 30 s */
@@ -2752,7 +2946,7 @@
             google.script.run
                 .withSuccessHandler(() => { document.getElementById('budgetNom').value = ''; toast('Budget disimpan', 'ok'); loadData(true); })
                 .withFailureHandler(e => toast('Gagal menyimpan budget: ' + e.message, 'err'))
-                .saveBudget(data);
+                .saveBudget({ ...data, auth: getProfileAuth() });
         }
 
         function deleteBudgetUI(kategori) {
@@ -2763,7 +2957,7 @@
             google.script.run
                 .withSuccessHandler(() => { toast('Budget dihapus', 'ok'); loadData(true); })
                 .withFailureHandler(e => toast('Gagal menghapus budget: ' + e.message, 'err'))
-                .deleteBudget(kategori);
+                .deleteBudget(kategori, getProfileAuth());
         }
 
         function buildRecurringCats() {
@@ -2810,7 +3004,7 @@
             google.script.run
                 .withSuccessHandler(() => { clearRecurringForm(); toast('Transaksi rutin ditambahkan', 'ok'); loadData(true); })
                 .withFailureHandler(e => toast('Gagal menyimpan rutin: ' + e.message, 'err'))
-                .saveRecurringTransaction(data);
+                .saveRecurringTransaction({ ...data, auth: getProfileAuth() });
         }
 
         function deleteRecurringUI(id) {
@@ -2821,7 +3015,7 @@
             google.script.run
                 .withSuccessHandler(() => { toast('Transaksi rutin dihapus', 'ok'); loadData(true); })
                 .withFailureHandler(e => toast('Gagal menghapus rutin: ' + e.message, 'err'))
-                .deleteRecurringTransaction(id);
+                .deleteRecurringTransaction(id, getProfileAuth());
         }
 
         function runRecurringNow() {
@@ -2829,7 +3023,7 @@
             google.script.run
                 .withSuccessHandler(r => { toast(`${r.created || 0} transaksi rutin dibuat`, 'ok'); loadData(true); })
                 .withFailureHandler(e => toast('Gagal proses rutin: ' + e.message, 'err'))
-                .processRecurringTransactions();
+                .processRecurringTransactions(getProfileAuth());
         }
 
         function clearRecurringForm() {
@@ -2987,7 +3181,7 @@
             google.script.run
                 .withSuccessHandler(() => { toast('Transaksi berhasil disimpan', 'ok'); loadData(); })
                 .withFailureHandler(e => toast('Gagal menyimpan: ' + e.message, 'err'))
-                .addData(data);
+                .addData({ ...data, auth: getProfileAuth() });
         }
         function doUpdate(data) {
             closeMod();
@@ -2995,7 +3189,7 @@
             google.script.run
                 .withSuccessHandler(() => { toast('Transaksi berhasil diperbarui', 'ok'); loadData(); })
                 .withFailureHandler(e => toast('Gagal memperbarui: ' + e.message, 'err'))
-                .updateData(data);
+                .updateData({ ...data, auth: getProfileAuth() });
         }
 
         /* ════════════════════════════════════
@@ -3009,7 +3203,7 @@
             google.script.run
                 .withSuccessHandler(() => { toast('Transaksi dihapus', 'ok'); loadData(); })
                 .withFailureHandler(e => toast('Gagal menghapus: ' + e.message, 'err'))
-                .deleteData(id);
+                .deleteData(id, getProfileAuth());
         }
 
         /* ════════════════════════════════════

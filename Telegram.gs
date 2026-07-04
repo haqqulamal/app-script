@@ -2,7 +2,10 @@
 
 var HELP_TEXT =
   "Cara pakai Ledger Harian Bot\n\n" +
-  "Format:\n" +
+  "Hubungkan dulu bot ke profil website:\n" +
+  "/profil nama PIN\n" +
+  "Contoh: /profil haqqu 1234\n\n" +
+  "Format catat transaksi:\n" +
   "<tipe> <nominal> <keterangan> [#kategori] [@metode]\n\n" +
   "Tipe:\n" +
   "- k / keluar  = pengeluaran\n" +
@@ -17,9 +20,11 @@ var HELP_TEXT =
   "k 50000 bensin\n\n" +
   'Kategori & metode opsional (default: "Lainnya").\n\n' +
   "Perintah lain:\n" +
-  "/saldo     = lihat total saldo\n" +
-  "/hariini   = rekap transaksi hari ini\n" +
-  "/help      = tampilkan pesan ini";
+  "/profil nama PIN = hubungkan profil pribadi\n" +
+  "/id              = lihat Chat ID\n" +
+  "/saldo           = lihat total saldo\n" +
+  "/hariini         = rekap transaksi hari ini\n" +
+  "/help            = tampilkan pesan ini";
 
 function doPost(e) {
   try {
@@ -39,18 +44,29 @@ function doPost(e) {
 
     var chatId = message.chat.id;
     var text = message.text.trim();
+    var lowerText = text.toLowerCase();
 
-    if (text === "/start" || text === "/help") {
+    if (lowerText === "/start" || lowerText === "/help") {
       sendTelegramMessage(chatId, HELP_TEXT);
       return HtmlService.createHtmlOutput("ok");
     }
 
-    if (text === "/saldo") {
+    if (lowerText === "/id") {
+      sendTelegramMessage(chatId, "Chat ID: " + chatId);
+      return HtmlService.createHtmlOutput("ok");
+    }
+
+    if (lowerText.indexOf("/profil") === 0 || lowerText.indexOf("/profile") === 0) {
+      handleProfileCommand_(chatId, text);
+      return HtmlService.createHtmlOutput("ok");
+    }
+
+    if (lowerText === "/saldo") {
       sendTelegramMessage(chatId, getSaldoText(chatId));
       return HtmlService.createHtmlOutput("ok");
     }
 
-    if (text === "/hariini" || text === "/today") {
+    if (lowerText === "/hariini" || lowerText === "/today") {
       sendTelegramMessage(chatId, getRekapHariIniText(chatId));
       return HtmlService.createHtmlOutput("ok");
     }
@@ -100,8 +116,34 @@ function doPost(e) {
   return HtmlService.createHtmlOutput("ok");
 }
 
+function handleProfileCommand_(chatId, text) {
+  var parts = text.split(/\s+/).filter(Boolean);
+  if (parts.length < 3) {
+    sendTelegramMessage(chatId, "Format profil: /profil nama PIN\nContoh: /profil haqqu 1234");
+    return;
+  }
+
+  var profileName = parts[1];
+  var pin = parts.slice(2).join(" ");
+  var result = linkTelegramProfile_(chatId, profileName, pin);
+  var msg = result.created
+    ? "Profil baru dibuat dan Telegram terhubung: " + result.profileName
+    : "Telegram terhubung ke profil: " + result.profileName;
+  sendTelegramMessage(chatId, msg + "\nSekarang /saldo dan catatan baru akan memakai data profil ini.");
+}
+
+function linkTelegramProfile_(chatId, profileName, pin) {
+  var result = ensureProfile({ profileName: profileName, pin: pin });
+  PropertiesService.getScriptProperties().setProperty("TG_OWNER_" + chatId, result.owner);
+  return result;
+}
+
 function getTelegramOwner_(chatId) {
-  return "telegram:" + chatId;
+  var owner = PropertiesService.getScriptProperties().getProperty("TG_OWNER_" + chatId);
+  if (!owner) {
+    throw new Error("Telegram belum terhubung ke profil. Kirim: /profil nama PIN");
+  }
+  return owner;
 }
 
 function parseTelegramText(text) {
