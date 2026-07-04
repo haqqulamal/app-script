@@ -2052,6 +2052,22 @@
             box-shadow: 0 0 0 3px rgba(39, 127, 101, .14);
         }
 
+        .profile-remember {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            color: var(--t100);
+            font-size: 12px;
+            font-weight: 800;
+            user-select: none;
+        }
+
+        .profile-remember input {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--g700);
+        }
+
         .profile-actions {
             display: grid;
             grid-template-columns: 1fr auto;
@@ -2109,6 +2125,10 @@
                     <label for="profilePinInput">PIN</label>
                     <input id="profilePinInput" type="password" autocomplete="current-password" placeholder="minimal 4 karakter">
                 </div>
+                <label class="profile-remember">
+                    <input id="profileRememberInput" type="checkbox" checked>
+                    <span>Ingat di perangkat ini</span>
+                </label>
                 <div class="profile-actions">
                     <button class="profile-primary" type="submit">Masuk</button>
                     <button class="profile-secondary" type="button" onclick="clearProfileLogin()">Ganti</button>
@@ -2639,11 +2659,15 @@
 
         function loadStoredProfile() {
             const profileName = localStorage.getItem('ledgerProfileName') || '';
-            const pin = sessionStorage.getItem('ledgerProfilePin') || '';
+            const savedPin = localStorage.getItem('ledgerProfilePin') || '';
+            const sessionPin = sessionStorage.getItem('ledgerProfilePin') || '';
+            const pin = sessionPin || savedPin;
             const nameEl = document.getElementById('profileNameInput');
             const pinEl = document.getElementById('profilePinInput');
+            const rememberEl = document.getElementById('profileRememberInput');
             if (nameEl && profileName) nameEl.value = profileName;
             if (pinEl && pin) pinEl.value = pin;
+            if (rememberEl) rememberEl.checked = Boolean(savedPin) || !sessionPin;
             if (profileName && pin) profileAuth = { profileName, pin };
         }
 
@@ -2672,6 +2696,7 @@
         function saveProfileLogin() {
             const profileName = (document.getElementById('profileNameInput')?.value || '').trim();
             const pin = (document.getElementById('profilePinInput')?.value || '').trim();
+            const remember = document.getElementById('profileRememberInput')?.checked !== false;
             if (!profileName) return toast('Nama profil wajib diisi', 'warn');
             if (pin.length < 4) return toast('PIN minimal 4 karakter', 'warn');
 
@@ -2680,6 +2705,8 @@
                 profileAuth = { profileName: result?.profileName || profileName, pin };
                 localStorage.setItem('ledgerProfileName', profileAuth.profileName);
                 sessionStorage.setItem('ledgerProfilePin', pin);
+                if (remember) localStorage.setItem('ledgerProfilePin', pin);
+                else localStorage.removeItem('ledgerProfilePin');
                 closeProfile();
                 toast(result?.created ? 'Profil baru dibuat' : 'Profil aktif', 'ok');
                 loadData();
@@ -2695,6 +2722,7 @@
         function clearProfileLogin() {
             profileAuth = null;
             localStorage.removeItem('ledgerProfileName');
+            localStorage.removeItem('ledgerProfilePin');
             sessionStorage.removeItem('ledgerProfilePin');
             allTx = []; budgets = []; recurringTx = [];
             renderAll();
