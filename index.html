@@ -2091,6 +2091,33 @@
 
 <body>
 
+    <div class="profile-lock" id="profileLock">
+        <div class="profile-card">
+            <div class="profile-head">
+                <div class="profile-icon"><i data-lucide="shield-check" width="22" height="22"></i></div>
+                <div>
+                    <div class="profile-title">Masuk Profil</div>
+                    <div class="profile-sub">Data mengikuti profil dan PIN pribadi.</div>
+                </div>
+            </div>
+            <form class="profile-form" onsubmit="saveProfileLogin(); return false;">
+                <div class="profile-row">
+                    <label for="profileNameInput">Nama Profil</label>
+                    <input id="profileNameInput" autocomplete="username" placeholder="contoh: haqqu">
+                </div>
+                <div class="profile-row">
+                    <label for="profilePinInput">PIN</label>
+                    <input id="profilePinInput" type="password" autocomplete="current-password" placeholder="minimal 4 karakter">
+                </div>
+                <div class="profile-actions">
+                    <button class="profile-primary" type="submit">Masuk</button>
+                    <button class="profile-secondary" type="button" onclick="clearProfileLogin()">Ganti</button>
+                </div>
+            </form>
+            <div class="profile-note">Telegram memakai profil yang sama: /profil nama PIN</div>
+        </div>
+    </div>
+
     <!-- APP BAR -->
     <div class="appbar">
         <div class="bp" style="opacity:.055">
@@ -2112,9 +2139,14 @@
                 <div class="t1">Ledger Harian</div>
                 <div class="t2">Catatan uang pribadi</div>
             </div>
-            <button class="av-btn" onclick="openGuide()" title="Panduan Spreadsheet">
-                <i data-lucide="help-circle" width="18" height="18"></i>
-            </button>
+            <div class="appbar-actions">
+                <button class="av-btn" onclick="openProfile(true)" title="Profil">
+                    <i data-lucide="user" width="18" height="18"></i>
+                </button>
+                <button class="av-btn" onclick="openGuide()" title="Panduan Spreadsheet">
+                    <i data-lucide="help-circle" width="18" height="18"></i>
+                </button>
+            </div>
         </div>
 
         <div class="hero">
