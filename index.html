@@ -1173,6 +1173,50 @@
             box-shadow: 0 0 0 3px rgba(47, 128, 237, .1)
         }
 
+        .receipt-wrap {
+            margin-bottom: 14px
+        }
+
+        .receipt-actions {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            min-height: 48px;
+            padding: 0;
+            border-radius: 13px;
+            border: 1.5px solid var(--bdr);
+            background: var(--bg);
+            overflow: hidden;
+            transition: .2s var(--ease)
+        }
+
+        .receipt-actions:focus-within {
+            border-color: var(--g600);
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(47, 128, 237, .1)
+        }
+
+        .scan-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            min-height: 48px;
+            padding: 12px 14px;
+            color: var(--g700);
+            background: rgba(47, 128, 237, .06);
+            border: none;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: .2s var(--ease)
+        }
+
+        .scan-btn:hover {
+            background: rgba(47, 128, 237, .1)
+        }
+
         .fsub {
             width: 100%;
             padding: 14px;
@@ -1996,6 +2040,24 @@
             margin-bottom: 16px;
         }
 
+        .profile-status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 9px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, .15);
+            border: 1px solid rgba(255, 255, 255, .2);
+            color: #fff;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .02em;
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
         .profile-icon {
             width: 42px;
             height: 42px;
@@ -2129,9 +2191,10 @@
                     <input id="profileRememberInput" type="checkbox" checked>
                     <span>Ingat di perangkat ini</span>
                 </label>
-                <div class="profile-actions">
-                    <button class="profile-primary" type="submit">Masuk</button>
+                <div class="profile-actions" style="grid-template-columns: 1fr 1fr 1fr;">
+                    <button class="profile-secondary" type="button" onclick="closeProfile()">Kembali</button>
                     <button class="profile-secondary" type="button" onclick="clearProfileLogin()">Ganti</button>
+                    <button class="profile-primary" type="submit">Masuk</button>
                 </div>
             </form>
             <div class="profile-note">Telegram memakai profil yang sama: /profil nama PIN</div>
@@ -2158,6 +2221,7 @@
             <div class="appbar-brand">
                 <div class="t1">Ledger Harian</div>
                 <div class="t2">Catatan uang pribadi</div>
+                <div id="currentProfileBadge" class="profile-status-badge" style="display:none">Belum login</div>
             </div>
             <div class="appbar-actions">
                 <button class="av-btn" onclick="openProfile(true)" title="Profil">
@@ -2450,6 +2514,15 @@
                         placeholder="Contoh: Gaji bulanan, Makan siang…"></div>
                 <div class="fg"><label class="fl">Nominal (Rp)</label><input type="text" inputmode="numeric" class="fi"
                         id="fNom" placeholder="0" oninput="fmtNomInput(this)"></div>
+                <div class="receipt-wrap">
+                    <label class="fl">Scan Struk</label>
+                    <div class="receipt-actions">
+                        <label class="scan-btn" for="receiptInput">
+                            <i data-lucide="scan-line" width="15" height="15"></i> Scan Struk
+                        </label>
+                        <input id="receiptInput" type="file" accept="image/*" style="display:none" onchange="handleReceiptUpload(event)">
+                    </div>
+                </div>
                 <div id="extraFields"></div>
                 <button class="fsub" id="fSub" onclick="submitForm()">
                     <i data-lucide="save" width="16" height="16"></i> Simpan Transaksi
@@ -2613,6 +2686,7 @@
         let delId = null, isEdit = false;
         let barIns = null, dnutIns = null;
         let curSec = 'home';
+        let autoRefreshTimer = null;
 
         /* ════════════════════════════════════
            INIT
@@ -2624,6 +2698,8 @@
             rotateTips();
             buildExtraFields();
             buildGuide();
+            loadStoredProfile();
+            updateProfileStatus();
             loadData();
             if (hasGAS()) startAutoRefresh();
         });
@@ -2657,6 +2733,19 @@
            LOAD DATA
         ════════════════════════════════════ */
 
+        function updateProfileStatus() {
+            const badge = document.getElementById('currentProfileBadge');
+            if (!badge) return;
+            const activeName = profileAuth?.profileName || localStorage.getItem('ledgerProfileName') || '';
+            if (!activeName) {
+                badge.textContent = 'Belum login';
+                badge.style.display = 'none';
+                return;
+            }
+            badge.textContent = `Profil: ${activeName}`;
+            badge.style.display = 'inline-flex';
+        }
+
         function loadStoredProfile() {
             const profileName = localStorage.getItem('ledgerProfileName') || '';
             const savedPin = localStorage.getItem('ledgerProfilePin') || '';
@@ -2668,7 +2757,14 @@
             if (nameEl && profileName) nameEl.value = profileName;
             if (pinEl && pin) pinEl.value = pin;
             if (rememberEl) rememberEl.checked = Boolean(savedPin) || !sessionPin;
-            if (profileName && pin) profileAuth = { profileName, pin };
+            if (profileName && pin) {
+                profileAuth = { profileName, pin };
+                updateProfileStatus();
+                return profileAuth;
+            }
+            profileAuth = null;
+            updateProfileStatus();
+            return null;
         }
 
         function getProfileAuth() {
@@ -2691,6 +2787,10 @@
         function closeProfile() {
             const mod = document.getElementById('profileLock');
             if (mod) mod.classList.remove('open');
+            updateProfileStatus();
+            if (profileAuth && profileAuth.profileName && profileAuth.pin) {
+                loadData(true);
+            }
         }
 
         function saveProfileLogin() {
@@ -2707,6 +2807,7 @@
                 sessionStorage.setItem('ledgerProfilePin', pin);
                 if (remember) localStorage.setItem('ledgerProfilePin', pin);
                 else localStorage.removeItem('ledgerProfilePin');
+                updateProfileStatus();
                 closeProfile();
                 toast(result?.created ? 'Profil baru dibuat' : 'Profil aktif', 'ok');
                 loadData();
@@ -2724,13 +2825,34 @@
             localStorage.removeItem('ledgerProfileName');
             localStorage.removeItem('ledgerProfilePin');
             sessionStorage.removeItem('ledgerProfilePin');
-            allTx = []; budgets = []; recurringTx = [];
+
+            allTx = [];
+            budgets = [];
+            recurringTx = [];
+            curF = 'all';
+            showSyncing(false);
             renderAll();
+            updateProfileStatus();
+
+            const nameInput = document.getElementById('profileNameInput');
+            const pinInput = document.getElementById('profilePinInput');
+            if (nameInput) nameInput.value = '';
+            if (pinInput) pinInput.value = '';
+
             openProfile(true);
+            toast('Profil dibersihkan. Silakan pilih profil baru.', 'warn');
         }
 
         function loadData(silent) {
             if (!hasGAS()) { allTx = demo(); budgets = demoBudgets(); recurringTx = demoRecurring(); renderAll(); return; }
+
+            const auth = profileAuth || loadStoredProfile();
+            if (!auth || !auth.profileName || !auth.pin) {
+                openProfile(true);
+                showSyncing(false);
+                return;
+            }
+
             if (!silent) showSyncing(true);
             google.script.run
                 .withSuccessHandler(d => {
@@ -2744,12 +2866,13 @@
                     renderAll(); showSyncing(false);
                 })
                 .withFailureHandler(e => { toast('Gagal memuat: ' + e.message, 'err'); allTx = []; budgets = []; recurringTx = []; renderAll(); showSyncing(false); })
-                .getAppState(getProfileAuth());
+                .getAppState(auth);
         }
 
         /* Auto-refresh: re-fetch from sheet every 30 s */
         function startAutoRefresh() {
-            setInterval(() => loadData(true), 30000);
+            if (autoRefreshTimer) return;
+            autoRefreshTimer = setInterval(() => loadData(true), 30000);
         }
 
         /* Syncing badge */
@@ -3216,6 +3339,72 @@
             }).join('');
         }
         function clearExtra() { SCHEMA.extraFields.forEach(f => { const el = document.getElementById('ef_' + f.key); if (el) el.value = ''; }); }
+
+        function formatDateForInput(dateStr) {
+            if (!dateStr) return '';
+            const parts = String(dateStr).split('/');
+            if (parts.length !== 3) return '';
+            const [d, m, y] = parts;
+            return `${y}-${p(m)}-${p(d)}`;
+        }
+
+        function handleReceiptUpload(event) {
+            const input = event.target;
+            const file = input.files && input.files[0];
+            if (!file) return;
+            if (!file.type.startsWith('image/')) {
+                toast('File harus berupa gambar struk', 'warn');
+                input.value = '';
+                return;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                toast('Ukuran maksimal 10MB', 'warn');
+                input.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function () {
+                const dataUrl = reader.result;
+                if (!hasGAS()) {
+                    toast('Fitur scan struk hanya tersedia saat app berjalan di Apps Script', 'warn');
+                    input.value = '';
+                    return;
+                }
+
+                const auth = getProfileAuth();
+                toast('Membaca struk...', 'ok');
+                google.script.run
+                    .withSuccessHandler((parsed) => {
+                        if (!parsed || !parsed.nominal) {
+                            throw new Error('Struk tidak terdeteksi dengan jelas');
+                        }
+                        const parsedDate = formatDateForInput(parsed.tanggal || '');
+                        if (parsedDate) {
+                            document.getElementById('fDate').value = parsedDate;
+                        } else {
+                            setTodayDate();
+                        }
+                        setType(parsed.jenis || 'Pengeluaran');
+                        document.getElementById('fDesc').value = parsed.deskripsi || 'Pembelian struk';
+                        document.getElementById('fNom').value = parsed.nominal ? Number(parsed.nominal).toLocaleString('id-ID') : '';
+                        const kat = document.getElementById('fKat');
+                        if (kat && parsed.kategori) kat.value = parsed.kategori;
+                        const metodoEl = document.getElementById('ef_metode');
+                        if (metodoEl && parsed.metode) metodoEl.value = parsed.metode;
+                        const catatanEl = document.getElementById('ef_catatan');
+                        if (catatanEl && parsed.catatan) catatanEl.value = parsed.catatan;
+                        toast('Struk berhasil dibaca. Silakan cek dan simpan.', 'ok');
+                        input.value = '';
+                    })
+                    .withFailureHandler((e) => {
+                        toast(e.message || 'Gagal membaca struk', 'err');
+                        input.value = '';
+                    })
+                    .processReceiptImage({ auth, dataUrl });
+            };
+            reader.readAsDataURL(file);
+        }
 
         /* ════════════════════════════════════
            SUBMIT

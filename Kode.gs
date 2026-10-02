@@ -446,3 +446,132 @@ function deleteData(id, auth) {
     throw new Error("Gagal menghapus data: " + e.message);
   }
 }
+
+function processReceiptImage(payload) {
+  try {
+    const auth = payload && payload.auth ? payload.auth : payload;
+    const owner = requireOwnerKey_(auth);
+    const dataUrl = payload && payload.dataUrl ? payload.dataUrl : "";
+    if (!dataUrl) throw new Error("Gambar struk kosong");
+
+    const content = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
+    const bytes = Utilities.base64Decode(content);
+    return processReceiptImageData_(bytes, owner);
+  } catch (e) {
+    throw new Error("Gagal membaca struk: " + e.message);
+  }
+}
+
+function processReceiptImageData_(imageBytes, owner) {
+  const apiKey = PropertiesService.getScriptProperties().getProperty("GOOGLE_VISION_API_KEY");
+  if (!apiKey) {
+    throw new Error("Belum ada GOOGLE_VISION_API_KEY. Tambahkan di Script Properties untuk fitur OCR struk.");
+  }
+
+  const requestBody = {
+    requests: [{
+      image: { content: Utilities.base64Encode(imageBytes) },
+      features: [{ type: "DOCUMENT_TEXT_DETECTION", maxResults: 1 }],
+    }],
+  };
+
+  const response = UrlFetchApp.fetch(
+    "https://vision.googleapis.com/v1/images:annotate?key=" + apiKey,
+    {
+      method: "post",
+      contentType: "application/json",
+      payload: JSON.stringify(requestBody),
+      muteHttpExceptions: true,
+    }
+  );
+
+  const json = JSON.parse(response.getContentText());
+  if (json.error) {
+    throw new Error(json.error.message || "OCR gagal");
+  }
+
+  const text =
+    (json.responses && json.responses[0] && json.responses[0].fullTextAnnotation && json.responses[0].fullTextAnnotation.text) ||
+    "";
+
+  if (!text.trim()) {
+    throw new Error("Gambar struk tidak terbaca. Coba gunakan foto yang lebih jelas.");
+  }
+
+  return parseReceiptText_(text, owner);
+}
+
+function parseReceiptText_(text, owner) {
+  const lines = String(text)
+    .replace(/\r/g, "")
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const combined = lines.join(" ");
+  const priceMatch = combined.match(/(?:Rp|IDR|idr|rupiah)\s*[:]?\s*([0-9]{1,3}(?:\.[0-9]{3})*(?:,[0-9]{2})?|[0-9]+(?:,[0-9]{2})?)/gi);
+  let nominal = 0;
+  if (priceMatch && priceMatch.length) {
+    const last = priceMatch[priceMatch.length - 1];
+    const cleaned = last.replace(/[^0-9,\.]/g, "").replace(/\./g, "").replace(",", ".");
+    nominal = Number(cleaned || 0);
+  }
+
+  const numMatches = [...combined.matchAll(/\b\d{1,3}(?:\.\d{3})+(?:,\d{2})?\b|\b\d+(?:,\d{2})?\b/g)].map((m) => m[0]);
+  if (!nominal && numMatches.length) {
+    const candidate = numMatches.filter((n) => Number(n.replace(/[^0-9,\.]/g, "").replace(/\./g, "").replace(",", ".")) > 500)
+      .sort((a, b) => Number(b.replace(/[^0-9,\.]/g, "").replace(/\./g, "").replace(",", ".")) - Number(a.replace(/[^0-9,\.]/g, "").replace(/\./g, "").replace(",", ".")))[0];
+    nominal = Number((candidate || numMatches[numMatches.length - 1]).replace(/[^0-9,\.]/g, "").replace(/\./g, "").replace(",", "."));
+  }
+
+  const dateMatch = combined.match(/\b(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\b|\b(\d{4}[-/]\d{1,2}[-/]\d{1,2})\b/);
+  let tanggal = Utilities.formatDate(new Date(), "Asia/Jakarta", "dd/MM/yyyy");
+  if (dateMatch) {
+    const raw = dateMatch[0].replace(/\//g, "-").replace(/\./g, "-");
+    const parts = raw.split("-");
+    if (parts.length === 3) {
+      let d = Number(parts[0]), m = Number(parts[1]), y = Number(parts[2]);
+      if (y < 100) y = 2000 + y;
+      const dateObj = new Date(y, m - 1, d);
+      if (!isNaN(dateObj.getTime())) {
+        tanggal = Utilities.formatDate(dateObj, "Asia/Jakarta", "dd/MM/yyyy");
+      }
+    }
+  }
+
+  let deskripsi = "Pembelian struk";
+  const merchantLine = lines.find((line) => !/total|bayar|kembalian|cash|change|terima kasih|thank you|invoice|receipt/i.test(line) && line.length > 3);
+  if (merchantLine) deskripsi = merchantLine;
+
+  let kategori = "Lainnya";
+  const low = combined.toLowerCase();
+  if (/makan|resto|coffee|kopi|warung|food|bakso|nasi|pizza|ayam|sate|juice|milk/i.test(low)) kategori = "Makanan";
+  else if (/bensin|ojol|grab|gocar|transport|taxi|kereta|bus|parkir|toll|pesawat|motor|mobil/i.test(low)) kategori = "Transport";
+  else if (/listrik|internet|wifi|telkom|pulsa|air|indihome|pln|hp|operator|tagihan|voucher/i.test(low)) kategori = "Tagihan";
+  else if (/obat|klinik|dokter|rs|rumah sakit|farmasi|kesehatan|apotek/i.test(low)) kategori = "Kesehatan";
+  else if (/sekolah|buku|kursus|kuliah|pendidikan|alat tulis/i.test(low)) kategori = "Pendidikan";
+  else if (/belanja|mart|market|supermarket|retail|grosir|barang/i.test(low)) kategori = "Belanja";
+
+  let metode = "";
+  if (/qris|ewallet|ovo|gopay|dana|shopeepay|linkaja/i.test(low)) metode = "QRIS";
+  else if (/transfer|bank|bca|mandiri|bri|bnl|bni/i.test(low)) metode = "Transfer";
+  else if (/cash|tunai/i.test(low)) metode = "Cash";
+  else if (/debit|kartu debit|credit|kredit|visa|mastercard/i.test(low)) metode = "Kartu Debit";
+
+  const result = {
+    tanggal,
+    jenis: "Pengeluaran",
+    kategori,
+    deskripsi: deskripsi.slice(0, 80),
+    nominal: Math.max(Number(nominal) || 0, 0),
+    metode,
+    catatan: "Dibuat otomatis dari hasil scan struk",
+    owner,
+  };
+
+  if (!result.nominal || result.nominal <= 0) {
+    throw new Error("Nominal struk tidak bisa terbaca dengan jelas. Silakan edit secara manual.");
+  }
+
+  return result;
+}

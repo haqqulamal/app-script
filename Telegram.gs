@@ -5,6 +5,8 @@ var HELP_TEXT =
   "Hubungkan dulu bot ke profil website:\n" +
   "/profil nama PIN\n" +
   "Contoh: /profil haqqu 1234\n\n" +
+  "Kirim foto struk untuk scan otomatis.\n" +
+  "Bot akan mendeteksi nominal, tanggal, dan kategori.\n\n" +
   "Format catat transaksi:\n" +
   "<tipe> <nominal> <keterangan> [#kategori] [@metode]\n\n" +
   "Tipe:\n" +
@@ -21,6 +23,7 @@ var HELP_TEXT =
   'Kategori & metode opsional (default: "Lainnya").\n\n' +
   "Perintah lain:\n" +
   "/profil nama PIN = hubungkan profil pribadi\n" +
+  "/unlink          = putuskan profil Telegram saat ini\n" +
   "/id              = lihat Chat ID\n" +
   "/saldo           = lihat total saldo\n" +
   "/hariini         = rekap transaksi hari ini\n" +
@@ -38,11 +41,21 @@ function doPost(e) {
     cache.put(cacheKey, "1", 300);
 
     var message = update.message;
-    if (!message || !message.text) {
+    if (!message) {
       return HtmlService.createHtmlOutput("ok");
     }
 
     var chatId = message.chat.id;
+
+    if (message.photo && message.photo.length) {
+      handleReceiptPhoto_(chatId, message);
+      return HtmlService.createHtmlOutput("ok");
+    }
+
+    if (!message.text) {
+      return HtmlService.createHtmlOutput("ok");
+    }
+
     var text = message.text.trim();
     var lowerText = text.toLowerCase();
 
@@ -53,6 +66,15 @@ function doPost(e) {
 
     if (lowerText === "/id") {
       sendTelegramMessage(chatId, "Chat ID: " + chatId);
+      return HtmlService.createHtmlOutput("ok");
+    }
+
+    if (lowerText === "/unlink") {
+      PropertiesService.getScriptProperties().deleteProperty("TG_OWNER_" + chatId);
+      sendTelegramMessage(
+        chatId,
+        "Hubungan Telegram dengan profil telah diputus.\nKirim: /profil nama PIN\nContoh: /profil haqqu 1234"
+      );
       return HtmlService.createHtmlOutput("ok");
     }
 
@@ -143,7 +165,67 @@ function getTelegramOwner_(chatId) {
   if (!owner) {
     throw new Error("Telegram belum terhubung ke profil. Kirim: /profil nama PIN");
   }
+
+  var sheet = getOrCreateNamedSheet(PROFILE_SHEET_NAME, PROFILE_HEADERS);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    PropertiesService.getScriptProperties().deleteProperty("TG_OWNER_" + chatId);
+    throw new Error("Profil yang terhubung sudah dihapus. Kirim: /profil nama PIN");
+  }
+
+  var rows = sheet.getRange(2, 1, lastRow - 1, PROFILE_HEADERS.length).getValues();
+  var found = rows.some(function (row) {
+    return row[0] && row[0].toString() === owner.replace(/^profile:/, "");
+  });
+
+  if (!found) {
+    PropertiesService.getScriptProperties().deleteProperty("TG_OWNER_" + chatId);
+    throw new Error("Profil yang terhubung sudah tidak valid. Kirim: /profil nama PIN");
+  }
+
   return owner;
+}
+
+function handleReceiptPhoto_(chatId, message) {
+  try {
+    var token = PropertiesService.getScriptProperties().getProperty("TELEGRAM_BOT_TOKEN");
+    var fileId = message.photo[message.photo.length - 1].file_id;
+    var getFileUrl = "https://api.telegram.org/bot" + token + "/getFile?file_id=" + encodeURIComponent(fileId);
+    var getFileResp = UrlFetchApp.fetch(getFileUrl, { muteHttpExceptions: true });
+    var getFileJson = JSON.parse(getFileResp.getContentText());
+    if (!getFileJson.ok || !getFileJson.result || !getFileJson.result.file_path) {
+      throw new Error("Gagal mengambil file struk dari Telegram");
+    }
+
+    var filePath = getFileJson.result.file_path;
+    var fileUrl = "https://api.telegram.org/file/bot" + token + "/" + filePath;
+    var fileResp = UrlFetchApp.fetch(fileUrl, { muteHttpExceptions: true });
+    var dataUrl = "data:image/jpeg;base64," + Utilities.base64Encode(fileResp.getContent());
+    var parsed = processReceiptImage({ auth: getTelegramOwner_(chatId), dataUrl: dataUrl });
+
+    addData({
+      tanggal: parsed.tanggal,
+      jenis: parsed.jenis,
+      kategori: parsed.kategori,
+      deskripsi: parsed.deskripsi,
+      nominal: parsed.nominal,
+      metode: parsed.metode,
+      catatan: parsed.catatan,
+      owner: getTelegramOwner_(chatId),
+    });
+
+    sendTelegramMessage(
+      chatId,
+      "Struk terdeteksi:\n" +
+        "Tanggal: " + parsed.tanggal + "\n" +
+        "Nominal: Rp" + formatRupiah(parsed.nominal) + "\n" +
+        "Kategori: " + parsed.kategori + "\n" +
+        "Deskripsi: " + parsed.deskripsi + "\n\n" +
+        "Sudah otomatis tersimpan ke profil ini."
+    );
+  } catch (err) {
+    sendTelegramMessage(chatId, "Gagal membaca struk: " + err.message + "\nCoba kirim foto yang lebih jelas atau gunakan format manual.");
+  }
 }
 
 function parseTelegramText(text) {

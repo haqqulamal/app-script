@@ -1,191 +1,205 @@
 # Ledger Harian
 
-Ledger Harian adalah aplikasi pencatat keuangan berbasis Google Apps Script dan Google Sheets. Aplikasi ini menyediakan dashboard mobile, pencatatan pemasukan/pengeluaran, laporan bulanan, budget kategori, transaksi rutin, export CSV/PDF, insight otomatis, dan integrasi Telegram Bot.
+Ledger Harian adalah aplikasi pencatat keuangan pribadi berbasis Google Apps Script dan Google Sheets. Aplikasi ini dibuat untuk kebutuhan pencatatan pemasukan, pengeluaran, anggaran kategori, transaksi rutin, serta monitoring saldo dalam satu dashboard yang bisa diakses lewat browser dan Telegram.
 
-## Fitur
+## Fitur utama
 
-- Catat pemasukan dan pengeluaran harian.
-- Data pribadi dipisahkan memakai profil + PIN.
-- Website dan Telegram bisa memakai data profil yang sama.
-- Dashboard saldo, total pemasukan, dan total pengeluaran.
-- Riwayat transaksi dengan filter jenis, tanggal, dan pencarian.
-- Laporan bulanan dengan grafik pemasukan vs pengeluaran.
-- Distribusi pengeluaran per kategori.
-- Budget bulanan per kategori dengan progress pemakaian.
-- Transaksi rutin bulanan untuk gaji, kos, tagihan, internet, dan kebutuhan berulang lain.
-- Insight otomatis, seperti kategori terbesar dan perubahan pengeluaran dibanding bulan sebelumnya.
-- Export data ke CSV.
-- Export laporan ke PDF melalui print/save PDF browser.
-- Telegram Bot untuk mencatat transaksi lewat chat.
+- Catat transaksi harian dengan tipe pemasukan dan pengeluaran
+- Dashboard saldo, total pemasukan, dan total pengeluaran
+- Filter, pencarian, dan riwayat transaksi per profil
+- Budget bulanan per kategori
+- Transaksi rutin otomatis yang dibuat setiap bulan
+- Rekap laporan bulanan dan grafik pengeluaran per kategori
+- Integrasi Telegram bot untuk menambah transaksi via chat
+- Fitur OCR sederhana untuk membaca struk foto menggunakan Google Vision API
+- Multi-profil dengan nama profil dan PIN untuk memisahkan data antar pengguna
+- Export data ke format CSV dan export laporan ke PDF dari browser
 
-## Struktur File
+## Struktur project
 
 ```text
 .
-|-- Kode.gs          # Backend utama Apps Script dan operasi Google Sheets
-|-- Telegram.gs      # Webhook dan command Telegram Bot
-|-- index.html       # UI aplikasi web
-|-- appscript.json   # Manifest Apps Script
-|-- LICENSE
-`-- README.md
+├── Kode.gs          # Logika utama Apps Script, sheet, profil, transaksi, export
+├── Telegram.gs      # Webhook Telegram, parser pesan, perintah bot, OCR struk
+├── index.html       # Antarmuka web aplikasi
+├── appscript.json   # Manifest Google Apps Script
+├── LICENSE
+├── README.md
+└── .clasp.json      # Opsional, jika project dipakai dengan clasp
 ```
 
-## Kebutuhan
+## Prasyarat
 
-- Akun Google.
-- Google Spreadsheet.
-- Google Apps Script.
+- Akun Google
+- Spreadsheet Google
+- Google Apps Script
 - Koneksi internet untuk CDN frontend:
   - Google Fonts
   - Chart.js
   - Lucide Icons
-- Opsional: Telegram Bot dari BotFather.
+- Bot Telegram dari BotFather (opsional, untuk fitur Telegram)
+- Google Vision API key (opsional, untuk fitur OCR struk)
 
-Tidak membutuhkan Node.js, npm, Composer, Laravel, MySQL, atau server lokal.
+Tidak diperlukan Node.js, npm, Composer, MySQL, atau server lokal.
 
-## Setup Google Apps Script
+## Setup aplikasi di Google Apps Script
 
-1. Buat Google Spreadsheet baru.
-2. Buka `Extensions > Apps Script`.
-3. Buat/isi file berikut di Apps Script:
+1. Buat spreadsheet baru di Google Drive.
+2. Buka spreadsheet lalu masuk ke menu `Extensions > Apps Script`.
+3. Buat file baru dan salin isi dari project ini:
    - `Kode.gs`
    - `Telegram.gs`
    - `index.html`
    - `appscript.json`
-4. Klik `Save`.
+4. Simpan project.
+5. Jika diperlukan, aktifkan permissions yang diminta oleh Apps Script.
 
-## Deploy Web App
+## Konfigurasi Script Properties
 
-1. Klik `Deploy > New deployment`.
+Beberapa fitur membutuhkan value yang disimpan di Script Properties di Apps Script.
+
+### 1) Telegram Bot token
+
+Masuk ke `Project Settings > Script Properties` lalu tambahkan:
+
+```text
+TELEGRAM_BOT_TOKEN = token_bot_kamu
+```
+
+### 2) Google Vision API key (opsional)
+
+Untuk fitur scan struk otomatis, tambahkan:
+
+```text
+GOOGLE_VISION_API_KEY = api_key_kamu
+```
+
+> Jangan menaruh token atau API key di source code secara langsung.
+
+## Deploy web app
+
+1. Di editor Apps Script, klik `Deploy > New deployment`.
 2. Pilih type `Web app`.
-3. Gunakan pengaturan:
+3. Gunakan konfigurasi:
    - Execute as: `Me`
    - Who has access: `Anyone`
 4. Klik `Deploy`.
-5. Izinkan permission yang diminta Google.
-6. Copy URL Web App yang berakhiran `/exec`.
+5. Copy URL hasil deploy yang berakhiran `/exec`.
 
-Setelah melakukan perubahan kode, deploy ulang lewat:
+Setelah perubahan kode, deploy ulang dengan cara:
 
 ```text
 Deploy > Manage deployments > Edit > New version > Deploy
 ```
 
-## Mode Privasi Profil
+## Profil dan privacy
 
-Aplikasi memakai profil + PIN agar data tidak bercampur walaupun URL web app dibuka orang lain.
+Aplikasi memakai sistem profil + PIN agar data antar pengguna tidak bercampur di satu spreadsheet.
 
-Cara pakai di website:
+### Cara login di web
 
-1. Buka URL Web App.
-2. Isi `Nama Profil`, misalnya `haqqu`.
-3. Isi PIN minimal 4 karakter.
-4. Profil baru akan dibuat otomatis jika belum ada.
+1. Buka URL web app.
+2. Masukkan nama profil, misalnya `haqqu`.
+3. Masukkan PIN minimal 4 karakter.
+4. Jika profil belum ada, aplikasi akan otomatis membuat profil baru.
 
-Cara pakai di Telegram:
+### Cara login di Telegram
 
 ```text
 /profil haqqu 1234
 ```
 
-Gunakan nama profil dan PIN yang sama dengan website. Setelah tersambung, `/saldo`, `/hariini`, dan catatan transaksi Telegram akan membaca data profil tersebut.
+Setelah terhubung, semua perintah seperti `/saldo`, `/hariini`, dan transaksi baru akan memakai profil yang sama.
 
-Catatan migrasi data lama:
+### Data lama
 
-- Sheet `Data Keuangan`, `Budget Kategori`, dan `Transaksi Rutin` punya kolom `Pemilik`.
-- Agar data lama muncul di profil kamu, isi kolom `Pemilik` dengan format `profile:nama`.
-- Contoh untuk profil `haqqu`: isi `profile:haqqu` pada baris data lama yang ingin dimiliki profil itu.
-- Orang lain bisa membuat profil dan PIN sendiri, sehingga mereka hanya melihat data miliknya.
+Sheet `Data Keuangan`, `Budget Kategori`, dan `Transaksi Rutin` memiliki kolom `Pemilik`.
+Untuk menampilkan data lama pada profil tertentu, isi kolom `Pemilik` dengan format:
 
-## Sheet yang Digunakan
+```text
+profile:haqqu
+```
 
-Aplikasi akan membuat sheet berikut secara otomatis jika belum ada:
+Artinya data tersebut dimiliki oleh profil `haqqu`.
+
+## Sheet yang dibuat otomatis
+
+Aplikasi akan membuat sheet berikut jika belum ada:
 
 - `Data Keuangan`
 - `Budget Kategori`
 - `Transaksi Rutin`
 - `Profil User`
 
-### Data Keuangan
-
-Kolom utama:
+### `Data Keuangan`
 
 ```text
 ID | Tanggal | Jenis | Kategori | Deskripsi | Nominal | Metode Bayar | Catatan | Pemilik
 ```
 
-### Budget Kategori
-
-Kolom:
+### `Budget Kategori`
 
 ```text
 Kategori | Budget Bulanan | Pemilik
 ```
 
-### Transaksi Rutin
-
-Kolom:
+### `Transaksi Rutin`
 
 ```text
 ID | Jenis | Kategori | Deskripsi | Nominal | Metode Bayar | Catatan | Tanggal Mulai | Hari Tagih | Aktif | Terakhir Dibuat | Pemilik
 ```
 
-### Profil User
-
-Kolom:
+### `Profil User`
 
 ```text
 Profil | PIN Hash | Dibuat Pada
 ```
 
-## Setup Telegram Bot
+## Bot Telegram
 
-1. Buat bot melalui BotFather di Telegram.
-2. Copy token bot.
-3. Buka Apps Script.
-4. Masuk ke `Project Settings`.
-5. Tambahkan Script Property:
+### Set webhook
 
-```text
-Property: TELEGRAM_BOT_TOKEN
-Value: token_bot_kamu
-```
-
-Jangan menaruh token langsung di source code.
-
-## Set Webhook Telegram
-
-Webhook perlu diarahkan ke URL Web App `/exec`.
-
-Buka browser dan akses URL berikut setelah mengganti bagian token dan URL:
+Setelah bot dibuat via BotFather dan token sudah disimpan, arahkan webhook ke URL web app:
 
 ```text
 https://api.telegram.org/botTOKEN_BOT_KAMU/setWebhook?url=URL_WEB_APP_EXEC
 ```
 
-Contoh format:
+Contoh:
 
 ```text
 https://api.telegram.org/bot123456:ABC/setWebhook?url=https://script.google.com/macros/s/DEPLOYMENT_ID/exec
 ```
 
-Jika webhook sebelumnya sudah berhasil dan deployment yang sama masih dipakai, webhook tidak perlu diset ulang. Set ulang webhook hanya jika:
+Webhook biasanya tidak perlu diatur ulang jika token dan deployment tetap sama.
 
-- Mengganti token bot.
-- Revoke token di BotFather.
-- Membuat deployment Web App baru dengan URL berbeda.
-- Menghapus deployment lama.
-- Pindah project Apps Script.
-
-## Command Telegram
+### Perintah Telegram
 
 Hubungkan profil:
+
+```text
+/profil nama PIN
+```
+
+Contoh:
 
 ```text
 /profil haqqu 1234
 ```
 
-Format pencatatan:
+Perintah lain:
+
+```text
+/start
+/help
+/id
+/unlink
+/saldo
+/hariini
+/today
+```
+
+### Format catat transaksi via Telegram
 
 ```text
 k 15rb kopi pagi #makanan @tunai
@@ -193,27 +207,16 @@ m 2jt gaji bulanan #gaji @transfer
 k 50000 bensin
 ```
 
-Tipe:
+Tipe transaksi:
 
 ```text
 k / keluar / - / out    = Pengeluaran
 m / masuk / + / in      = Pemasukan
 ```
 
-Command lain:
+### Format nominal
 
-```text
-/start
-/help
-/id
-/saldo
-/hariini
-/today
-```
-
-## Format Nominal Telegram
-
-Nominal bisa ditulis seperti:
+Nominal bisa ditulis dalam format seperti:
 
 ```text
 15000
@@ -224,27 +227,31 @@ Nominal bisa ditulis seperti:
 2juta
 ```
 
-## Export PDF
+### Mengirim foto struk
 
-Export PDF dilakukan dari halaman laporan. Klik `Export PDF`, lalu browser akan membuka halaman print. Pilih `Save as PDF`.
+Bot juga bisa membaca foto struk untuk mendeteksi nominal dan informasi transaksi secara otomatis, selama `GOOGLE_VISION_API_KEY` sudah diisi.
 
-## Catatan Keamanan
+## Keamanan dan catatan penting
 
-- Jangan commit token Telegram.
-- Simpan token hanya di Script Properties dengan nama `TELEGRAM_BOT_TOKEN`.
-- Jika token pernah terlihat di screenshot/chat/public repo, revoke token melalui BotFather lalu buat token baru.
-- PIN disimpan sebagai hash di sheet `Profil User`, tetapi tetap gunakan PIN yang tidak mudah ditebak.
-- Karena konfigurasi web app memakai akses `Anyone`, gunakan URL dengan hati-hati.
+- Jangan pernah commit token bot ke repository publik.
+- Simpan token di Script Properties, bukan di source code.
+- PIN tersimpan dalam bentuk hash pada sheet `Profil User`.
+- Karena web app menggunakan akses `Anyone`, pastikan URL web app tidak dibagikan sembarangan.
+- Jika token bot terbuka di screenshot, log, atau repo publik, revoke token tersebut di BotFather dan buat token baru.
 
-## Development
+## Pengembangan
 
-Project ini tidak memakai build step. Edit file langsung, lalu salin ke Apps Script dan deploy versi baru.
+Project ini tidak memiliki build step. Untuk melakukan perubahan, cukup edit file source lalu simpan di Apps Script dan deploy versi baru.
 
-Untuk cek sintaks lokal secara sederhana:
+Untuk validasi sintaks sederhana di lokal, bisa digunakan perintah berikut:
 
 ```bash
 node --input-type=commonjs --check < Kode.gs
 node --input-type=commonjs --check < Telegram.gs
 ```
 
-Untuk `index.html`, cek script di dalam tag `<script>` sebelum deploy jika melakukan perubahan besar.
+Untuk `index.html`, disarankan untuk memeriksa script di dalam tag `<script>` sebelum deployment jika ada perubahan besar.
+
+## Lisensi
+
+Project ini dilisensikan di bawah MIT License. Lihat file LICENSE untuk detail lengkap.
